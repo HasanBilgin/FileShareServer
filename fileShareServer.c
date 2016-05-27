@@ -12,6 +12,7 @@
 
 
 char pcClients[256][1000];
+int iSocket[256];
 pid_t pClientPID[256];
 int iSocketServer;
 void interruptHandler(int);
@@ -23,11 +24,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "./fileShareServer port\n");
 		exit(1);
 	}
-	int iAccept;      
 	struct sockaddr_in server,client;  
-	int iRet;
-	int iAddrLen;
-	int iRecvLen;
+	int iRet, iAddrLen,iRecvLen,iAccept;
 	char ucRecvBuf[1000];
 
 	int iNumberOfClient = -1;        
@@ -70,7 +68,7 @@ int main(int argc, char **argv)
 		if (iAccept != -1)
 		{
 			iNumberOfClient++;
-			
+			iSocket[iNumberOfClient] = iAccept;			
 			//printf("Client baglandi %d : %s\n", iNumberOfClient, inet_ntoa(client.sin_addr));
 			do{
 				iRecvLen = recv(iAccept, ucRecvBuf, 999, 0);
@@ -99,6 +97,7 @@ int main(int argc, char **argv)
 					{
 						ucRecvBuf[iRecvLen] = '\0';
 					}
+/*---------------------------------------------------------------------------*/							
 					if ( !strcmp(ucRecvBuf,"listServer\n" ) )	{
 						DIR  *dir;
 						struct dirent* dirent;
@@ -110,32 +109,53 @@ int main(int argc, char **argv)
 							if (dirent->d_type == DT_REG){
 								strcpy(files,dirent->d_name);
 								int iSendLen = send(iAccept, files, 999, 0);
-							if (iSendLen <= 0)	{
-								printf("send() hatasi!\n");
-								close(iAccept);
-								return -1;
-							}	
-							
+								if (iSendLen <= 0)	{
+									printf("send() hatasi!\n");
+									close(iAccept);
+									return -1;
+								}	
 							}
 						}
 						strcpy(files,"end");
 						send(iAccept,files,999,0);
 					}
-/*---------------------------------------------------------------------------*/							
+/*---------------------------------------------------------------------------*/
+			else if ( !strcmp (ucRecvBuf,"lsClients\n") ){
+				char clients[1000];
+				int i = 0;
+				for( i = 0 ; i < 256 ;++i) {
+					if ( strlen(pcClients[i]) > 0)	{
+					int iSendLen = send(iAccept, pcClients[i], 999, 0);
+					if (iSendLen <= 0)	{
+						printf("send() hatasi!\n");
+						close(iAccept);
+						return -1;
+						}
+					}
 				}
+				char end[1000];
+				strcpy(end,"end");
+				send(iAccept,end,999,0);	
 			}
 			else	{
 				close(iAccept);
 			}
-		}
-	}
-
+			}/* end of while(1)	*/
+		}/*end of child	*/
+		}/* end of accept*/
+	}/* end of while(1)	*/
 	close(iSocketServer);
 	return 0;
 }
 /*  Ctrl + C sinyali olusunca server i ve butun client lari kapatir */
 void interruptHandler (int signo)   {
-	close(iSocketServer);
-	printf("Ctrl + C sinyali geldi program kapatildi\n");
+	char interrupt[1000];
+	strcpy(interrupt,"dead");
+	int i = 0;
+	for ( i = 0 ; i < 256 ; ++i)
+		send(iSocket[i],interrupt, 999, 0);
+
+	close(iSocketServer);	
+	printf("Ctrl + C sinyali geldi server kapandi\n");
     exit(EXIT_FAILURE);
 }

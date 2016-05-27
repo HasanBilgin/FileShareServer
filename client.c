@@ -11,6 +11,7 @@
 #include <dirent.h>
 
 void interruptHandler (int signo);
+void closeClient(int signo);
 
 int main(int argc, char **argv)
 {
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
 		return -1;
 		}
 	}	
-
+	int interrupt=0;
 	while (1)
 	{
 		fprintf(stderr, " Yapilacak islemi girin : ");
@@ -73,12 +74,15 @@ int main(int argc, char **argv)
 				while (recv(iSocketClient, ucSendBuf, 999, 0) > 0){
 					if ( !strcmp(ucSendBuf,"end"))
 						break;
+					if ( !strcmp(ucSendBuf,"dead"))
+						interrupt = 1;
+					
 					fprintf(stderr, "%s\n", ucSendBuf);
 				}
 			}
 /*---------------------------------------------------------------------------*/			
 
-			if ( !strcmp (ucSendBuf,"listLocal\n") ){
+			else if ( !strcmp (ucSendBuf,"listLocal\n") ){
 				DIR  *dir;
 				struct dirent* dirent;
 				char dirName[256];
@@ -98,13 +102,41 @@ int main(int argc, char **argv)
 				fprintf(stderr, "listServer : Serverin oldugu klasordeki dosyalari listeler\n");
 				fprintf(stderr, "lsClients : Servera bagli clientlari listeler\n");
 				fprintf(stderr, "sendFile <clientID> <filename> : ID si verilen client a dosya adi verilen dosyayi yollar\n" );
+				continue;
+			}
+/*---------------------------------------------------------------------------*/
+			else if ( !strcmp (ucSendBuf,"lsClients\n") ){
+				char clients[1000];
+				int i = 0;
+				while (recv(iSocketClient, ucSendBuf, 999, 0) > 0){
+					if ( !strcmp(ucSendBuf,"end"))
+						break;
+					if ( !strcmp(ucSendBuf,"dead"))
+						interrupt = 1;
+					fprintf(stderr, "%s\n", ucSendBuf);			
+				}
 			}
 /*---------------------------------------------------------------------------*/						
 		}
+		signal(SIGUSR1,closeClient);
+		if (recv(iSocketClient, ucSendBuf, 999, 0) > 0)
+		{
+			if (!strcmp(ucSendBuf,"dead"))
+				kill(getpid(),SIGUSR1);
+		}
+		if (interrupt)
+			kill(getpid(),SIGUSR1);
 	}	
 	return 0;
 }
 void interruptHandler (int signo)   {
-	printf("Ctrl + C sinyali geldi program kapatildi\n");
-    exit(EXIT_FAILURE);
+	if (signo == SIGINT){
+		printf("Ctrl + C sinyali geldi program kapatildi\n");
+    	exit(EXIT_FAILURE);
+	}
+}
+
+void closeClient(int signo)	{
+	printf("Server kapandi. Client kapatiliyor!!!\n");
+	exit(EXIT_FAILURE);
 }
