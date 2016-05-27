@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <dirent.h>
 
 void interruptHandler (int signo);
 
@@ -20,7 +21,6 @@ int main(int argc, char **argv)
 	}
 	int iSocketClient;
 	struct sockaddr_in server;   
-	//struct sockaddr_in client;          
 	
 	int iRet;
 	char ucSendBuf[1000];
@@ -61,8 +61,37 @@ int main(int argc, char **argv)
 		fprintf(stderr, " Yapilacak islemi girin : ");
 		if (fgets(ucSendBuf, 999, stdin))
 		{
-			if ( !strcmp (ucSendBuf,"listLocal\n") )
-				system("ls -p | grep -v /");
+			iSendLen = send(iSocketClient, ucSendBuf, strlen(ucSendBuf), 0);
+			if (iSendLen <= 0)
+			{
+				printf("send() hatasi!\n");
+				close(iSocketClient);
+				return -1;
+			}
+/*---------------------------------------------------------------------------*/							
+			if ( !strcmp (ucSendBuf,"listServer\n") ){
+				while (recv(iSocketClient, ucSendBuf, 999, 0) > 0){
+					if ( !strcmp(ucSendBuf,"end"))
+						break;
+					fprintf(stderr, "%s\n", ucSendBuf);
+				}
+			}
+/*---------------------------------------------------------------------------*/			
+
+			if ( !strcmp (ucSendBuf,"listLocal\n") ){
+				DIR  *dir;
+				struct dirent* dirent;
+				char dirName[256];
+				getcwd(dirName,256);
+				dir = opendir(dirName);
+				char files[1000];
+				while ( (dirent = readdir(dir)) != NULL){
+					if (dirent->d_type == DT_REG){
+						puts(dirent->d_name);		
+					}
+				}
+			}
+/*---------------------------------------------------------------------------*/						
 			else if ( !strcmp(ucSendBuf,"help\n"))
 			{
 				fprintf(stderr, "listLocal : Client in oldugu klasordeki dosyalari listeler\n");
@@ -70,19 +99,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "lsClients : Servera bagli clientlari listeler\n");
 				fprintf(stderr, "sendFile <clientID> <filename> : ID si verilen client a dosya adi verilen dosyayi yollar\n" );
 			}
-			else{
-				iSendLen = send(iSocketClient, ucSendBuf, strlen(ucSendBuf), 0);
-				if (iSendLen <= 0)
-				{
-					printf("send() hatasi!\n");
-					close(iSocketClient);
-					return -1;
-				}		
-			}
+/*---------------------------------------------------------------------------*/						
 		}
-		int iRecv = recv(iSocketClient, ucSendBuf, 999, 0);
-		if (iRecv > 0)
-			puts(ucSendBuf);
 	}	
 	return 0;
 }

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 
+
 char pcClients[256][1000];
 pid_t pClientPID[256];
 int iSocketServer;
@@ -99,22 +100,29 @@ int main(int argc, char **argv)
 						ucRecvBuf[iRecvLen] = '\0';
 					}
 					if ( !strcmp(ucRecvBuf,"listServer\n" ) )	{
-						   /*	Variables	*/
-   						DIR* pdirName;
-    					struct dirent* dir;
-						/* Klasoru acar	*/
-						char path[255];
-						getcwd(path,strlen(path));
-    					pdirName = opendir(path);
-    					/* Klasor icindeki butun dosya ve klasorleri okur */
-    					while ( (dir = readdir (pdirName)) != NULL )	{
-    						if (dir.d_type == DT_REG)	{
-								puts(dir.d_name);
-								send(iAccept,ucRecvBuf,999,0);
-    						}
+						DIR  *dir;
+						struct dirent* dirent;
+						char dirName[256];
+						getcwd(dirName,256);
+						dir = opendir(dirName);
+						char files[1000];
+						while ( (dirent = readdir(dir)) != NULL){
+							if (dirent->d_type == DT_REG){
+								strcpy(files,dirent->d_name);
+								int iSendLen = send(iAccept, files, 999, 0);
+							if (iSendLen <= 0)	{
+								printf("send() hatasi!\n");
+								close(iAccept);
+								return -1;
+							}	
+							
+							}
 						}
-
+						strcpy(files,"end");
+						send(iAccept,files,999,0);
 					}
+/*---------------------------------------------------------------------------*/							
+				}
 			}
 			else	{
 				close(iAccept);
