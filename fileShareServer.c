@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <dirent.h>
-
+#include <fcntl.h>
 
 char pcClients[256][1000];
 int iSocket[256];
@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 {
 	if (argc != 2)	{
 		fprintf(stderr, "USAGE\n");
-		fprintf(stderr, "./fileShareServer port\n");
+		fprintf(stderr, "./fileShareServer <port>\n");
 		exit(1);
 	}
 	struct sockaddr_in server,client;  
@@ -72,6 +72,8 @@ int main(int argc, char **argv)
 			//printf("Client baglandi %d : %s\n", iNumberOfClient, inet_ntoa(client.sin_addr));
 			do{
 				iRecvLen = recv(iAccept, ucRecvBuf, 999, 0);
+				char ID[1000];
+				ucRecvBuf[iRecvLen - 1] = '\0';
 				strcpy(pcClients[iNumberOfClient],ucRecvBuf);
 			}while (iRecvLen == 0);
 	
@@ -118,13 +120,15 @@ int main(int argc, char **argv)
 						}
 						strcpy(files,"end");
 						send(iAccept,files,999,0);
+						strcpy(files,"run");
+						send(iAccept,files,999,0);
 					}
 /*---------------------------------------------------------------------------*/
 			else if ( !strcmp (ucRecvBuf,"lsClients\n") ){
 				char clients[1000];
 				int i = 0;
 				for( i = 0 ; i < 256 ;++i) {
-					if ( strlen(pcClients[i]) > 0)	{
+					if ( strlen(pcClients[i]) > 0){
 					int iSendLen = send(iAccept, pcClients[i], 999, 0);
 					if (iSendLen <= 0)	{
 						printf("send() hatasi!\n");
@@ -136,6 +140,38 @@ int main(int argc, char **argv)
 				char end[1000];
 				strcpy(end,"end");
 				send(iAccept,end,999,0);	
+				strcpy(end,"run");
+				send(iAccept,end,999,0);	
+			}
+			else if ( !strcmp (ucRecvBuf,"listLocal\n") || !strcmp(ucRecvBuf,"help\n") ){
+				char run[1000];
+				strcpy(run,"run");
+				send(iAccept,run,999,0);	
+			}
+			else if ( ucRecvBuf[0] == 's' && ucRecvBuf[1] == 'e' && ucRecvBuf[2] == 'n' &&ucRecvBuf[3] == 'd' &&
+				ucRecvBuf[4] == 'F' && ucRecvBuf[5] == 'i' && ucRecvBuf[6] == 'l' && ucRecvBuf[7] == 'e')	{
+				char filename[1000];
+				char client[1000];	
+				char sendCommand[1000];
+				sscanf(ucRecvBuf,"%s %s %s\n",sendCommand,client,filename);
+				char run[1000];
+				strcpy(run,"wait");
+				send(iAccept,run,999,0);
+				
+				recv(iAccept, ucRecvBuf, BUFSIZ, 0);
+			    send(iAccept, "wait", 999, 0);
+    			int fileCapacity = atoi(ucRecvBuf);
+				int fd = open (filename,O_CREAT | O_WRONLY | O_TRUNC, 0666);
+    			int unCopy = fileCapacity;
+    			int length;
+    			while (((length = recv(iAccept, ucRecvBuf, BUFSIZ, 0)) > 0) && (unCopy > 0)) {
+       				send(iAccept, "wait", 999, 0);
+        			write(fd, ucRecvBuf, BUFSIZ);
+        			unCopy -= length;
+    			}    			
+				strcpy(run,"run");
+				send(iAccept,run,999,0);
+				close(fd);						
 			}
 			else	{
 				close(iAccept);
